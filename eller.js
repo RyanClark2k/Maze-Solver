@@ -2,8 +2,8 @@
 
 function generateMaze(){
    var canvas = document.getElementById('maze');
-   canvas.width  = 512.0;
-   canvas.height = 512.0;
+   canvas.width  = 256.0;
+   canvas.height = 256.0;
 
    var ctx = canvas.getContext("2d");
    ctx.fillStyle = "#FFFFFF";
@@ -13,12 +13,11 @@ function generateMaze(){
    let numCols = 32;
 
    curRow = [];
-   sets = [];
+   numberInSet = [];
 
    // Step 1: Initialize empty row
    for (var i = 0; i < numCols; i++){
-       var set = new Set();
-      sets.push(set);
+      numberInSet.push(0);
       var cell = new Cell();
       curRow.push(cell);
    }
@@ -26,7 +25,7 @@ function generateMaze(){
    for (var i = 0; i < numRows; i++){
        // Step 2: join setless cells to sets
        for (var j = 0; j < curRow.length; j++){
-           curRow[j].joinToUniqueSet(sets);
+           curRow[j].joinToUniqueSet(numberInSet);
        }
        // Step 3: Add right walls
        for (var j = 0; j < curRow.length; j++){
@@ -41,33 +40,29 @@ function generateMaze(){
                var addWall = Math.random() >= 0.5;
                curRow[j].rightWall = addWall;
                if (!addWall){
-                   sets[curRow[j].id].merge(sets[curRow[j+1].id]);
+                   mergeSets(curRow[j].id, curRow[j+1].id, numberInSet, curRow);
                }
            }
        }
-       // Step 4: Add bottom walls
-       for (var j = 0; j < sets.length; j++){
-           if(sets[j].cells.length == 0)
-               continue;
-            // choose one cell to remain open
-            var index = Math.floor(Math.random() * sets[j].cells.length);
-            sets[j].cells[index].bottomWall = false;
-            // assign open / closed for all cells in set
-            // leaving already open as open
-            for (var k = 0; k < sets[j].cells.length; k++){
-                if (sets[j].cells[k].bottomWall)
-                    sets[j].cells[k].bottomWall = Math.random() >= 0.5;
-            }
+       // Step 4: Remove bottom walls
+       for (var j = 0; j < curRow.length; j++){
+           var removeWall = Math.random() >= 0.5;
+           if (numberInSet[curRow[j].id] == 1)
+               removeWall = true;
+           curRow[j].bottomWall = !removeWall;
+           if (!removeWall)
+               numberInSet[curRow[j].id] -= 1;
        }
        // Step 5: Generate next row
        if (i != numRows-1){
            render(canvas, ctx, numRows, numCols, i, curRow);
+           numberInSet.fill(0, 0, numberInSet.length-1);
            for (var j = 0; j < curRow.length; j++){
                curRow[j].rightWall = false;
-               if(curRow[j].bottomWall){
-                   sets[curRow[j].id].remove(curRow[j]);
+               if(curRow[j].bottomWall)
                    curRow[j].id = -1;
-               }
+               else
+                   numberInSet[curRow[j].id] += 1;
                curRow[j].bottomWall = true;
            }
        }
@@ -80,7 +75,7 @@ function generateMaze(){
                }
                if (curRow[j+1].id != curRow[j].id){
                    curRow[j].rightWall = false;
-                   sets[curRow[j].id].merge(sets[curRow[j+1].id]);
+                   mergeSets(curRow[j].id, curRow[j+1].id, numberInSet, curRow);
                }
            }
            render(canvas, ctx, numRows, numCols, i, curRow);
@@ -89,7 +84,8 @@ function generateMaze(){
 }
 
 /**
- * Draw maze row by row
+ * Draw maze row by row. This is BY FAR the slowest step. Raises asymptotic complexity
+ * from O(n) to O(n^4) compared to unrendered maze
  */
 function render(canvas, ctx, numRows, numCols, i, curRow){
     var width = canvas.width / numCols;
@@ -115,6 +111,21 @@ function render(canvas, ctx, numRows, numCols, i, curRow){
 }
 
 /**
+ * Move all cells in set of right cell to set of left cell
+ */
+function mergeSets(leftSetID, rightSetID, numberInSet, cells) {
+    for (var i = 0; i < cells.length; i++){
+        if (cells[i].id == rightSetID){
+            cells[i].id = leftSetID;
+            numberInSet[rightSetID]--;
+            numberInSet[leftSetID]++;
+        }
+        if (numberInSet[rightSetID] == 0)
+            break;
+    }
+}
+
+/**
  * Cell simply stores booleans for whether bottom and top walls are enabled,
  * and the id of the set the cell is currently part of. JoinToUniqueSet adds
  * the cell to the first available set in the array sets.
@@ -125,43 +136,15 @@ class Cell {
         this.rightWall = false;
         this.id = -1;
     }
-    joinToUniqueSet(sets){
+    joinToUniqueSet(numberInSet){
         if(this.id >= 0)
             return;
-        for(var i = 0; i < sets.length; i++){
-            if(sets[i].cells.length == 0){
+        for(var i = 0; i < numberInSet.length; i++){
+            if(numberInSet[i] == 0){
                 this.id = i;
-                sets[i].id = i;
-                sets[i].add(this);
+                numberInSet[i]++;
                 break;
             }
         }
-    }
-}
-
-/**
- * A set stores an array of cells and an ID.The class also implements
- * helper functions that add or remove elements, merge two sets, and
- * check if element is in the set
- */
-class Set {
-    constructor(){
-        this.cells = [];
-        this.id = 0;
-    }
-    add(cell){
-        cell.id = this.id;
-        this.cells.push(cell);
-    }
-    remove(cell){
-        this.cells = this.cells.filter(function(item){ 
-            return item !== cell
-        })
-    }
-    merge(rightSet){
-        for(var i = 0; i < rightSet.cells.length; i++){
-            this.add(rightSet.cells[i]);
-        }
-        rightSet.cells.length = 0;
     }
 }
