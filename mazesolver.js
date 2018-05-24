@@ -149,12 +149,12 @@ function hasRight(n){
 
 function generateMaze(nRows, nCols){
    var canvas = document.getElementById('maze');
-   canvas.width  = 512.0;
-   canvas.height = 512.0;
+   canvas.width  = 256.0;
+   canvas.height = 256.0;
 
    var ctx = canvas.getContext("2d");
    ctx.fillStyle = "#FFFFFF";
-   ctx.fillRect(0,0,512,512);
+   ctx.fillRect(0,0,canvas.width,canvas.height);
 
    let numRows = nRows;
    let numCols = nCols;
